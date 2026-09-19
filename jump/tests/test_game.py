@@ -186,6 +186,17 @@ def test_ship_touching_floor_survives() -> None:
     assert game.player.vy == 0.0
 
 
+def test_ufo_touching_ceiling_survives() -> None:
+    game = Game()
+    game.player.set_mode("ufo")
+    game.player.y = c.CEILING_Y
+    game.player.vy = -120.0
+    game._resolve_collisions()
+    assert game.state == "playing"
+    assert game.player.y == pytest.approx(c.CEILING_Y)
+    assert game.player.vy == 0.0
+
+
 def test_purple_portal_switches_to_ship() -> None:
     game = Game()
     ship_portal = next(p for p in game.portals if p.mode == "ship")

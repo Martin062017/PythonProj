@@ -206,8 +206,9 @@ class Game:
                     self.player.vy = 0.0
         elif mode == "ufo":
             if self.player.y <= c.CEILING_Y:
-                self._die()
-                return
+                self.player.y = c.CEILING_Y
+                if self.player.vy < 0.0:
+                    self.player.vy = 0.0
         elif mode == "ball":
             # Ball may rest on floor or ceiling; crushing past bounds still kills.
             if self.player.y + self.player.size > c.GROUND_Y + 2:
