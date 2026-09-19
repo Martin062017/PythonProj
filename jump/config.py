@@ -22,6 +22,7 @@ GROUND_Y: float = 420.0
 CEILING_Y: float = 72.0
 SCROLL_SPEED: float = 380.0
 SPEED_PORTAL_MULTIPLIER: float = 1.35
+SLOW_PORTAL_MULTIPLIER: float = 0.65
 PLAYER_SCREEN_X: float = 180.0
 
 # Shared jump — exactly two block-heights
@@ -73,6 +74,8 @@ PORTAL_SHIP: tuple[int, int, int] = (210, 70, 220)  # purple
 PORTAL_BALL: tuple[int, int, int] = (255, 110, 50)  # orange-red
 PORTAL_UFO: tuple[int, int, int] = (255, 190, 50)  # yellow
 PORTAL_SPEED: tuple[int, int, int] = (255, 245, 90)  # bright yellow
+PORTAL_REVERSE: tuple[int, int, int] = (70, 230, 255)  # cyan
+PORTAL_SLOW: tuple[int, int, int] = (120, 150, 255)  # blue
 
 PORTAL_COLORS: dict[str, tuple[int, int, int]] = {
     "cube": PORTAL_CUBE,
@@ -80,6 +83,8 @@ PORTAL_COLORS: dict[str, tuple[int, int, int]] = {
     "ball": PORTAL_BALL,
     "ufo": PORTAL_UFO,
     "speed": PORTAL_SPEED,
+    "reverse": PORTAL_REVERSE,
+    "slow": PORTAL_SLOW,
 }
 
 UI: tuple[int, int, int] = (230, 240, 255)

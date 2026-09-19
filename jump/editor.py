@@ -24,6 +24,7 @@ from level import (
 LEVEL_FILE = Path(__file__).with_name("custom_level.json")
 GRID_SIZE = 18.0
 TOOLBAR_TOP = c.SCREEN_H - 78
+LONG_LEVEL_LENGTH = 10_000_000.0
 
 
 class Editor:
@@ -45,6 +46,8 @@ class Editor:
         self.request_secret = False
         self._secret_input = ""
         self.double_jump_enabled = True
+        self.long_level_enabled = False
+        self.infinite_test_enabled = False
         self._pulse = 0.0
         self._status = "New level"
         self._status_timer = 4.0
@@ -61,6 +64,9 @@ class Editor:
         self.double_jump_rect = pygame.Rect(490, TOOLBAR_TOP + 12, 174, 34)
         self.save_rect = pygame.Rect(424, TOOLBAR_TOP + 12, 58, 34)
         self.unsave_rect = pygame.Rect(424, TOOLBAR_TOP + 48, 76, 24)
+        self.rotate_rect = pygame.Rect(510, TOOLBAR_TOP + 48, 110, 24)
+        self.long_level_rect = pygame.Rect(628, TOOLBAR_TOP + 48, 170, 24)
+        self.infinite_test_rect = pygame.Rect(804, TOOLBAR_TOP + 48, 142, 24)
         self.play_rect = pygame.Rect(820, TOOLBAR_TOP + 12, 126, 34)
         if LEVEL_FILE.exists():
             self.load()
@@ -88,7 +94,15 @@ class Editor:
             elif event.key == pygame.K_5:
                 self.tool = "erase"
             elif event.key == pygame.K_p:
-                modes: tuple[Gamemode, ...] = ("cube", "ship", "ball", "ufo", "speed")
+                modes: tuple[Gamemode, ...] = (
+                    "cube",
+                    "ship",
+                    "ball",
+                    "ufo",
+                    "speed",
+                    "slow",
+                    "reverse",
+                )
                 self.portal_mode = modes[(modes.index(self.portal_mode) + 1) % len(modes)]
             elif event.key == pygame.K_o:
                 kinds: tuple[OrbKind, ...] = ("yellow", "pink", "blue", "black")
@@ -117,6 +131,30 @@ class Editor:
             if event.button == 1:
                 if self.unsave_rect.collidepoint(event.pos):
                     self.unsave()
+                    return
+                if self.rotate_rect.collidepoint(event.pos):
+                    self.tool = "rotate"
+                    self._status = "Click an object to rotate it 45 degrees"
+                    self._status_timer = 2.0
+                    return
+                if self.long_level_rect.collidepoint(event.pos):
+                    self.long_level_enabled = not self.long_level_enabled
+                    if self.long_level_enabled:
+                        self.finish_x = max(self.finish_x, LONG_LEVEL_LENGTH)
+                        self._status = "10,000,000-unit level enabled"
+                    else:
+                        self.finish_x = max(2400.0, self._last_object_finish())
+                        self._status = "Long level disabled"
+                    self._status_timer = 2.0
+                    return
+                if self.infinite_test_rect.collidepoint(event.pos):
+                    self.infinite_test_enabled = not self.infinite_test_enabled
+                    self._status = (
+                        "Infinite test enabled"
+                        if self.infinite_test_enabled
+                        else "Infinite test disabled"
+                    )
+                    self._status_timer = 2.0
                     return
                 if self.save_rect.collidepoint(event.pos):
                     self.save()
@@ -151,7 +189,10 @@ class Editor:
 
     def level_data(self) -> tuple[list[Obstacle], list[Portal], list[Orb], float]:
         """Return a clean copy of the current layout for a gameplay run."""
-        obstacles = [Obstacle(item.kind, item.x, item.y, item.w, item.h) for item in self.obstacles]
+        obstacles = [
+            Obstacle(item.kind, item.x, item.y, item.w, item.h, item.angle)
+            for item in self.obstacles
+        ]
         portals = [Portal(item.x, item.mode) for item in self.portals]
         orbs = [Orb(item.kind, item.x, item.y) for item in self.orbs]
         return obstacles, portals, orbs, self.finish_x
@@ -167,10 +208,7 @@ class Editor:
         world_x = self._snap(screen_x + self.camera_x)
         world_y = self._snap(screen_y)
         if self.tool == "spike":
-            if world_y >= (c.CEILING_Y + c.GROUND_Y) / 2:
-                world_y = c.GROUND_Y - 28.0
-            else:
-                world_y = c.CEILING_Y
+            world_y = max(c.CEILING_Y, min(c.GROUND_Y - 28.0, world_y))
             self.obstacles.append(Obstacle("spike", world_x, world_y, 28.0, 28.0))
         elif self.tool == "block":
             self.obstacles.append(
@@ -183,9 +221,26 @@ class Editor:
         elif self.tool == "erase":
             self.erase(position)
             return
+        elif self.tool == "rotate":
+            self.rotate(position)
+            return
         self._status = f"Added {self.tool}"
         self._status_timer = 2.0
         self.finish_x = max(self.finish_x, world_x + 300.0)
+
+    def rotate(self, position: tuple[int, int]) -> None:
+        """Rotate the nearest obstacle by 45 degrees."""
+        if not self.obstacles:
+            return
+        nearest = min(
+            self.obstacles,
+            key=lambda obstacle: self._distance_to_rect(position, obstacle.screen_rect(self.camera_x)),
+        )
+        if self._distance_to_rect(position, nearest.screen_rect(self.camera_x)) > GRID_SIZE * 2.0:
+            return
+        nearest.angle = (nearest.angle + 45.0) % 360.0
+        self._status = "Object rotated 45 degrees"
+        self._status_timer = 2.0
 
     def erase(self, position: tuple[int, int]) -> None:
         """Remove the nearest item within one grid cell of the cursor."""
@@ -220,6 +275,8 @@ class Editor:
         data = {
             "finish_x": self.finish_x,
             "double_jump_enabled": self.double_jump_enabled,
+            "long_level_enabled": self.long_level_enabled,
+            "infinite_test_enabled": self.infinite_test_enabled,
             "obstacles": [asdict(obstacle) for obstacle in self.obstacles],
             "portals": [asdict(portal) for portal in self.portals],
             "orbs": [asdict(orb) for orb in self.orbs],
@@ -267,6 +324,8 @@ class Editor:
             finish_x,
         )
         self.double_jump_enabled = bool(data.get("double_jump_enabled", True))
+        self.long_level_enabled = bool(data.get("long_level_enabled", False))
+        self.infinite_test_enabled = bool(data.get("infinite_test_enabled", False))
         self.camera_x = 0.0
         self._status = f"Loaded {LEVEL_FILE.name}"
         self._status_timer = 3.0
@@ -277,6 +336,7 @@ class Editor:
         self.portals.clear()
         self.orbs.clear()
         self.finish_x = 2400.0
+        self.long_level_enabled = False
         self.camera_x = 0.0
         self._status = "Cleared level"
         self._status_timer = 2.0
@@ -342,6 +402,28 @@ class Editor:
         pygame.draw.rect(surf, c.UI, self.unsave_rect, width=1, border_radius=5)
         unsave_text = self._small.render("UNSAVE", True, c.UI)
         surf.blit(unsave_text, unsave_text.get_rect(center=self.unsave_rect.center))
+        pygame.draw.rect(surf, c.MENU_BTN, self.rotate_rect, border_radius=5)
+        pygame.draw.rect(surf, c.UI, self.rotate_rect, width=1, border_radius=5)
+        rotate_text = self._small.render("ROTATE 45", True, c.UI)
+        surf.blit(rotate_text, rotate_text.get_rect(center=self.rotate_rect.center))
+        long_color = c.MENU_BTN_HOVER if self.long_level_enabled else c.MENU_BTN
+        pygame.draw.rect(surf, long_color, self.long_level_rect, border_radius=5)
+        pygame.draw.rect(surf, c.UI, self.long_level_rect, width=1, border_radius=5)
+        long_text = self._small.render(
+            "LONG: 10,000,000" if self.long_level_enabled else "LONG LEVEL OFF",
+            True,
+            c.UI,
+        )
+        surf.blit(long_text, long_text.get_rect(center=self.long_level_rect.center))
+        infinite_color = c.MENU_BTN_HOVER if self.infinite_test_enabled else c.MENU_BTN
+        pygame.draw.rect(surf, infinite_color, self.infinite_test_rect, border_radius=5)
+        pygame.draw.rect(surf, c.UI, self.infinite_test_rect, width=1, border_radius=5)
+        infinite_text = self._small.render(
+            "INFINITE TEST ON" if self.infinite_test_enabled else "INFINITE TEST OFF",
+            True,
+            c.UI,
+        )
+        surf.blit(infinite_text, infinite_text.get_rect(center=self.infinite_test_rect.center))
         for rect, label in (
             (self.scroll_left_rect, "<"),
             (self.scroll_right_rect, ">"),
@@ -368,6 +450,13 @@ class Editor:
     @staticmethod
     def _snap(value: float) -> float:
         return round(value / GRID_SIZE) * GRID_SIZE
+
+    def _last_object_finish(self) -> float:
+        """Return a reasonable finish after disabling long mode."""
+        positions = [item.x for item in self.obstacles]
+        positions.extend(portal.x for portal in self.portals)
+        positions.extend(orb.x for orb in self.orbs)
+        return max(2400.0, max(positions, default=0.0) + 300.0)
 
     @staticmethod
     def _distance_to_rect(position: tuple[int, int], rect: pygame.Rect) -> float:

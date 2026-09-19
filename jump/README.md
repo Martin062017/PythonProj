@@ -38,6 +38,8 @@ speed portal that increases the auto-scroll speed.
 Click **SAVE** in the editor to save your level progress, or press `S`.
 Saved levels automatically reopen when you enter the editor again.
 Click **UNSAVE** to remove the saved copy while keeping the current layout open.
+Enable **INFINITE TEST** in the editor to keep playing without reaching a finish
+line; press `Esc` to stop the test.
 
 After unlocking the vault, tapping its lock ten times and earning the key from
 the first level reveals the ten-level path. Each completed path level awards a

@@ -27,6 +27,7 @@ class MainMenu:
         self.vault_unlocked = False
         self.vault_key = False
         self.path_completed: set[int] = set()
+        self.boss_unlocked = False
 
     @property
     def choice(self) -> Optional[str]:

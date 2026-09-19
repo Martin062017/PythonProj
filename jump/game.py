@@ -26,6 +26,9 @@ class Game:
         *,
         double_jump_enabled: bool = True,
         path_level: int | None = None,
+        master_level: bool = False,
+        boss_level: bool = False,
+        infinite: bool = False,
     ) -> None:
         """Load the course and reset run stats."""
         self._font = pygame.font.SysFont("Arial", 28, bold=True)
@@ -48,6 +51,9 @@ class Game:
         self._level_data = level_data
         self.is_first_level = level_data is None
         self.path_level = path_level
+        self.master_level = master_level
+        self.boss_level = boss_level
+        self.infinite = infinite
         self._reset_level()
 
     def _reset_level(self) -> None:
@@ -56,7 +62,10 @@ class Game:
             self.obstacles, self.portals, self.orbs, self.finish_x = build_level()
         else:
             obstacles, portals, orbs, self.finish_x = self._level_data
-            self.obstacles = [Obstacle(item.kind, item.x, item.y, item.w, item.h) for item in obstacles]
+            self.obstacles = [
+                Obstacle(item.kind, item.x, item.y, item.w, item.h, item.angle)
+                for item in obstacles
+            ]
             self.portals = [Portal(item.x, item.mode) for item in portals]
             self.orbs = [Orb(item.kind, item.x, item.y) for item in orbs]
         self.camera_x = 0.0
@@ -111,7 +120,7 @@ class Game:
         if self.state == "won":
             return
 
-        self.camera_x += self.scroll_speed * dt
+        self.camera_x = max(0.0, self.camera_x + self.scroll_speed * dt)
         self._check_portals()
 
         solid_tops: list[tuple[float, float, float]] = []
@@ -143,7 +152,7 @@ class Game:
 
         pct = self.progress()
         self.best_progress = max(self.best_progress, pct)
-        if pct >= 1.0:
+        if pct >= 1.0 and not self.infinite:
             self.state = "won"
 
     def _try_orbs(self) -> None:
@@ -169,6 +178,10 @@ class Game:
                 portal.triggered = True
                 if portal.mode == "speed":
                     self.scroll_speed *= c.SPEED_PORTAL_MULTIPLIER
+                elif portal.mode == "slow":
+                    self.scroll_speed *= c.SLOW_PORTAL_MULTIPLIER
+                elif portal.mode == "reverse":
+                    self.scroll_speed *= -1.0
                 else:
                     self.player.set_mode(portal.mode)
 

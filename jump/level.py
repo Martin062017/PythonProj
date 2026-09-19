@@ -10,7 +10,7 @@ import pygame
 import config as c
 
 ObstacleKind = Literal["spike", "block"]
-Gamemode = Literal["cube", "ship", "ball", "ufo", "speed"]
+Gamemode = Literal["cube", "ship", "ball", "ufo", "speed", "slow", "reverse"]
 OrbKind = Literal["yellow", "pink", "blue", "black", "white"]
 
 LEVEL_NAME: str = "Stereo Madness"
@@ -25,6 +25,7 @@ class Obstacle:
     y: float
     w: float
     h: float
+    angle: float = 0.0
 
     def screen_rect(self, camera_x: float) -> pygame.Rect:
         """Return the drawn rect in screen space."""
@@ -365,11 +366,22 @@ def draw_obstacle(surf: pygame.Surface, obs: Obstacle, camera_x: float) -> None:
             tip = (rect.centerx, rect.bottom)
             left = (rect.left, rect.top)
             right = (rect.right, rect.top)
-        pygame.draw.polygon(surf, c.SPIKE, [tip, left, right])
-        pygame.draw.polygon(surf, (255, 160, 180), [tip, left, right], width=2)
+        points = [tip, left, right]
+        if obs.angle:
+            center = pygame.Vector2(rect.center)
+            points = [tuple(center + (pygame.Vector2(point) - center).rotate(-obs.angle)) for point in points]
+        pygame.draw.polygon(surf, c.SPIKE, points)
+        pygame.draw.polygon(surf, (255, 160, 180), points, width=2)
     else:
-        pygame.draw.rect(surf, c.BLOCK, rect, border_radius=3)
-        pygame.draw.rect(surf, c.BLOCK_EDGE, rect, width=2, border_radius=3)
+        if not obs.angle:
+            pygame.draw.rect(surf, c.BLOCK, rect, border_radius=3)
+            pygame.draw.rect(surf, c.BLOCK_EDGE, rect, width=2, border_radius=3)
+        else:
+            image = pygame.Surface(rect.size, pygame.SRCALPHA)
+            pygame.draw.rect(image, c.BLOCK, image.get_rect(), border_radius=3)
+            pygame.draw.rect(image, c.BLOCK_EDGE, image.get_rect(), width=2, border_radius=3)
+            rotated = pygame.transform.rotate(image, obs.angle)
+            surf.blit(rotated, rotated.get_rect(center=rect.center))
 
 
 def draw_portal(surf: pygame.Surface, portal: Portal, camera_x: float, pulse: float) -> None:

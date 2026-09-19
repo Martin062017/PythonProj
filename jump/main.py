@@ -11,7 +11,7 @@ from game import Game
 from editor import Editor
 from level import build_secret_level
 from menu import MainMenu
-from path import Path, build_path_level
+from path import Path, build_boss_level, build_master_level, build_path_level
 from vault import Vault
 
 
@@ -71,7 +71,11 @@ def main() -> int:
             if game.state == "won" and game.is_first_level:
                 menu.vault_key = True
             if game.state == "won" and game.path_level is not None and path is not None:
-                menu.path_completed.add(game.path_level)
+                if game.master_level:
+                    menu.boss_unlocked = True
+                    path.boss_unlocked = True
+                elif not game.boss_level:
+                    menu.path_completed.add(game.path_level)
                 game = None
                 scene = "path"
                 continue
@@ -90,6 +94,7 @@ def main() -> int:
                     game = Game(
                         editor.level_data(),
                         double_jump_enabled=editor.double_jump_enabled,
+                        infinite=editor.infinite_test_enabled,
                     )
                 editor = None
                 scene = "game"
@@ -102,7 +107,7 @@ def main() -> int:
         elif vault is not None:
             vault.update(dt)
             if vault.request_path:
-                path = Path(menu.path_completed)
+                path = Path(menu.path_completed, menu.boss_unlocked)
                 vault = None
                 scene = "path"
             elif vault.request_menu:
@@ -116,7 +121,16 @@ def main() -> int:
             if path.level_to_play is not None:
                 level_index = path.level_to_play
                 path.level_to_play = None
-                game = Game(build_path_level(level_index), path_level=level_index)
+                if level_index == 10:
+                    game = Game(
+                        build_master_level(), path_level=level_index, master_level=True
+                    )
+                elif level_index == 11:
+                    game = Game(
+                        build_boss_level(), path_level=level_index, boss_level=True
+                    )
+                else:
+                    game = Game(path.level_data(level_index), path_level=level_index)
                 scene = "game"
             elif path.request_vault:
                 vault = Vault(menu.vault_unlocked, menu.vault_key)

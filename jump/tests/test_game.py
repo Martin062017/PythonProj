@@ -14,7 +14,7 @@ from level import Obstacle, Portal, LEVEL_NAME, build_level, build_secret_level
 from menu import MainMenu
 from player import Player
 from vault import Vault
-from path import Path, build_path_level
+from path import Path, build_boss_level, build_master_level, build_path_level
 
 
 @pytest.fixture(autouse=True)
@@ -130,6 +130,26 @@ def test_speed_portal_increases_scroll_speed() -> None:
     assert game.player.mode == "cube"
 
 
+def test_reverse_portal_reverses_scroll_direction() -> None:
+    game = Game()
+    game.camera_x = 300.0
+    game.portals = [Portal(c.PLAYER_SCREEN_X, "reverse")]
+    game._check_portals()
+    assert game.scroll_speed == pytest.approx(-c.SCROLL_SPEED)
+    game.update(1.0)
+    assert game.camera_x < 300.0
+
+
+def test_slow_portal_reduces_scroll_speed() -> None:
+    game = Game()
+    game.portals = [Portal(c.PLAYER_SCREEN_X, "slow")]
+    game._check_portals()
+    assert game.scroll_speed == pytest.approx(
+        c.SCROLL_SPEED * c.SLOW_PORTAL_MULTIPLIER
+    )
+    assert game.player.mode == "cube"
+
+
 def test_ship_hold_flies_up_release_flies_down() -> None:
     p = Player()
     p.set_mode("ship")
@@ -239,6 +259,46 @@ def test_vault_path_has_ten_levels_and_white_orbs() -> None:
     assert path.door_open
 
 
+def test_path_level_variant_is_cached_for_retries() -> None:
+    path = Path()
+    first = path.level_data(0)
+    second = path.level_data(0)
+    assert first is second
+    assert first[3] == second[3]
+
+
+def test_open_path_reveals_master_level() -> None:
+    path = Path(set(range(10)))
+    path.handle_event(
+        pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=path.door_rect.center)
+    )
+    assert path.master_room
+    path.handle_event(
+        pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=path.master_rect.center)
+    )
+    assert path.level_to_play == 10
+    master = build_master_level()
+    assert len(master[0]) >= 30
+    assert [portal.mode for portal in master[1]] == [
+        "speed",
+        "ship",
+        "speed",
+        "cube",
+    ]
+
+
+def test_master_unlocks_boss_level() -> None:
+    path = Path(set(range(10)), boss_unlocked=True)
+    path.master_room = True
+    path.handle_event(
+        pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=path.boss_rect.center)
+    )
+    assert path.level_to_play == 11
+    boss = build_boss_level()
+    assert boss[3] == 3500.0
+    assert len(boss[0]) >= 20
+
+
 def test_first_level_grants_vault_key() -> None:
     game = Game()
     assert game.is_first_level
@@ -248,10 +308,50 @@ def test_first_level_grants_vault_key() -> None:
 
 def test_editor_places_snapped_spike() -> None:
     editor = Editor()
-    editor.place((100, int(c.GROUND_Y)))
+    editor.place((100, 250))
     assert len(editor.obstacles) == 1
     assert editor.obstacles[0].kind == "spike"
     assert editor.obstacles[0].x % 18 == 0
+    assert editor.obstacles[0].y == 252
+
+
+def test_editor_rotates_object_45_degrees() -> None:
+    editor = Editor()
+    editor.place((100, 250))
+    editor.handle_event(
+        pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=editor.rotate_rect.center)
+    )
+    editor.handle_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=(100, 250)))
+    assert editor.obstacles[0].angle == 45.0
+    assert Game(editor.level_data()).obstacles[0].angle == 45.0
+
+
+def test_editor_long_level_switch() -> None:
+    editor = Editor()
+    editor.handle_event(
+        pygame.event.Event(
+            pygame.MOUSEBUTTONDOWN, button=1, pos=editor.long_level_rect.center
+        )
+    )
+    assert editor.long_level_enabled
+    assert editor.finish_x == 10_000_000.0
+    editor.handle_event(
+        pygame.event.Event(
+            pygame.MOUSEBUTTONDOWN, button=1, pos=editor.long_level_rect.center
+        )
+    )
+    assert not editor.long_level_enabled
+    assert editor.finish_x == 2400.0
+
+
+def test_infinite_test_switch_disables_win() -> None:
+    editor = Editor()
+    editor.infinite_test_enabled = True
+    game = Game(editor.level_data(), infinite=editor.infinite_test_enabled)
+    game.camera_x = game.finish_x * 2.0
+    game.update(0.0)
+    assert game.infinite
+    assert game.state == "playing"
 
 
 def test_editor_cycles_portal_and_orb_variants() -> None:
