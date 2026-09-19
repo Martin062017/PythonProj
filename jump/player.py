@@ -15,6 +15,8 @@ Gamemode = Literal["cube", "ship", "ball", "ufo"]
 class Player:
     """Auto-running icon that switches gamemode through portals."""
 
+    MAX_AIR_JUMPS = 99
+
     def __init__(self, *, double_jump_enabled: bool = True) -> None:
         """Place the icon on the ground at the fixed screen X."""
         self.double_jump_enabled = double_jump_enabled
@@ -28,7 +30,7 @@ class Player:
         self.mode: Gamemode = "cube"
         self.gravity_dir: float = 1.0  # +1 normal, -1 inverted (ball)
         self.click_buffer: float = 0.0  # orb click buffer timer
-        self.air_jumps_left: int = 0  # cube double-jump charges
+        self.air_jumps_left: int = 0  # cube multi-jump charges
 
     @property
     def rect(self) -> pygame.Rect:
@@ -82,7 +84,7 @@ class Player:
             if self.on_ground:
                 self.vy = c.JUMP_VELOCITY
                 self.on_ground = False
-                self.air_jumps_left = 1 if self.double_jump_enabled else 0
+                self.air_jumps_left = self.MAX_AIR_JUMPS if self.double_jump_enabled else 0
             elif self.air_jumps_left > 0:
                 self.vy = c.DOUBLE_JUMP_VELOCITY
                 self.air_jumps_left -= 1
