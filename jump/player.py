@@ -150,6 +150,9 @@ class Player:
             self.y = c.GROUND_Y - self.size
             self.vy = 0.0
             self.on_ground = True
+        elif self.y <= c.CEILING_Y and self.vy <= 0.0:
+            self.y = c.CEILING_Y
+            self.vy = 0.0
             self.air_jumps_left = 0
             self.angle = round(self.angle / 90.0) * 90.0
 

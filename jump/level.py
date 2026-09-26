@@ -396,23 +396,27 @@ def draw_portal(surf: pygame.Surface, portal: Portal, camera_x: float, pulse: fl
     rh = 78
     oval = pygame.Rect(sx - rw, cy - rh, rw * 2, rh * 2)
 
-    glow = pygame.Surface((rw * 2 + 20, rh * 2 + 20), pygame.SRCALPHA)
-    pygame.draw.ellipse(glow, (*color, 55), glow.get_rect().inflate(-4, -4), width=10)
+    glow = pygame.Surface((rw * 2 + 36, rh * 2 + 36), pygame.SRCALPHA)
+    for padding, alpha in ((2, 20), (8, 28), (14, 40)):
+        glow_rect = glow.get_rect().inflate(-padding * 2, -padding * 2)
+        pygame.draw.ellipse(glow, (*color, alpha), glow_rect, width=7)
     surf.blit(glow, (oval.x - 10, oval.y - 10))
 
-    pygame.draw.ellipse(surf, color, oval, width=6)
+    pygame.draw.ellipse(surf, (255, 255, 255), oval.inflate(5, 5), width=2)
+    pygame.draw.ellipse(surf, color, oval, width=7)
     inner = oval.inflate(-16, -20)
     pygame.draw.ellipse(surf, (12, 14, 22), inner)
-    for i in range(1, 4):
+    for i in range(1, 5):
         y = inner.top + int(inner.h * i / 4)
         pygame.draw.line(
-            surf, (220, 225, 240), (inner.left + 6, y), (inner.right - 6, y), 1
+            surf, (*color, 150), (inner.left + 6, y), (inner.right - 6, y), 2
         )
-    for i in range(1, 3):
+    for i in range(1, 4):
         px = inner.left + int(inner.w * i / 3)
         pygame.draw.line(
             surf, (220, 225, 240), (px, inner.top + 8), (px, inner.bottom - 8), 1
         )
+    pygame.draw.ellipse(surf, (*color,), inner.inflate(-8, -10), width=3)
     pygame.draw.ellipse(surf, color, inner, width=2)
 
     for px, py in (
@@ -424,8 +428,13 @@ def draw_portal(surf: pygame.Surface, portal: Portal, camera_x: float, pulse: fl
         pygame.draw.circle(surf, color, (px, py), 5)
         pygame.draw.circle(surf, (255, 255, 255), (px, py), 2)
 
+    labels = {
+        "speed": "SPEED +",
+        "slow": "SLOW -",
+        "reverse": "REVERSE",
+    }
     font = pygame.font.SysFont("Arial", 13, bold=True)
-    text = font.render(portal.mode.upper(), True, color)
+    text = font.render(labels.get(portal.mode, portal.mode.upper()), True, color)
     surf.blit(text, text.get_rect(center=(sx, cy)))
 
 
